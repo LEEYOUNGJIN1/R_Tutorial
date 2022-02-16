@@ -1,107 +1,109 @@
-# 일표본(One Sample) t-test 
+# 대응표본 (Paired Sample) t-test
 
-# 1.기본 package 설정
+##문제
+###K제약회사의 신제품 개발부서에서는 3개월 안에 살이 빠지는 다이어트 약을
+###개발하였다. 회사 경영진에게 새롭게 개발한 다이어트약이 효과가 있는지를
+###보고하기 위하여 약의 효능을 검증하였다. 약을 먹기 전의 체중과 약을 먹은
+###후 3개월 후의 체중을 조사하였다. 
+###과연 새로운 약은 다이어트에 효과가 있는가
 
-# 1.1 library 로드
+# 1.기본 package 설정, library 로드
 library(tidyverse)
 library(tidymodels)
 library(rstatix)
 library(skimr)
 
 # 2.데이터 불러오기 
-ost_tb <- read_csv('data/OST.csv', 
+pst_tb <- read_csv('data\\pst.csv', 
                    col_names = TRUE,
                    locale=locale('ko', encoding='euc-kr'), # 한글
                    na=".") %>%
-  round(2) %>%                  # 소수점 2자리로 반올림
+  round(2) %>%                 # 소수점 2자리로 반올림
   mutate_if(is.character, as.factor)
 
-str(ost_tb)
-glimpse(ost_tb)
-ost_tb
+str(pst_tb)
+pst_tb
 
-# 3.기본통계치 확인
-skim(ost_tb)
+# long형으로 변형
+pst_tb_long <- pst_tb %>%
+  pivot_longer(c("섭취전","섭취후"), #c("1999, 2000")에러남 
+               names_to = "시간",
+               values_to = "몸무게")
 
-ost_tb %>%
-  get_summary_stats(weight)
+pst_tb_long
 
-ost_tb %>% 
-  summarize(sample_size = n(),
-            mean = mean(weight),
-            sd = sd(weight),
-            minimum = min(weight),
-            lower_quartile = quantile(weight, 0.25),
-            median = median(weight),
-            upper_quartile = quantile(weight, 0.75),
-            max = max(weight))
+# 차이 추가
+pst_tb <- pst_tb %>%
+  mutate(차이 = 섭취후-섭취전)
+
+pst_tb
+
+
+
+
+# 3.기술통계분석
+skim(pst_tb)
+
+pst_tb %>% 
+  get_summary_stats(섭취전, 섭취후, 차이)
 
 # 4.그래프 그리기(박스그래프,히스토그램)
-ost_tb %>% 
-  ggplot(aes(y = weight)) +
+pst_tb %>% 
+  ggplot(aes(y = 차이)) +
   geom_boxplot() +
   labs(y = "몸무게")
 
-ost_tb %>% 
-  ggplot(mapping = aes(x = weight)) +
-  geom_histogram(binwidth = 10) +
-  coord_cartesian(xlim=c(200, 400),       # coord_cartesian:좌표계
-                  ylim=c(0, 30))
+pst_tb %>% 
+  ggplot(aes(x = 차이)) +
+  geom_histogram(binwidth = 3, 
+                 color = "white", 
+                 fill = "steelblue")
 
 # 5.이상치 제거
 # 이상치 확인
-ost_tb %>% 
-  identify_outliers(weight)
-
-# 이상치 제거
-ost_tb <- ost_tb %>%
-  filter(!(weight <= 242))
-
-ost_tb %>% 
-  ggplot(aes(y = weight)) +
-  geom_boxplot() +
-  labs(y = "몸무게")
+pst_tb %>%
+  identify_outliers(차이)
 
 # 6.정규분포 검정
-ost_tb %>%
-  shapiro_test(weight)
+pst_tb %>%
+  shapiro_test(차이)
 
-# 7.통계분석
+# 7.paired t-검정
 #################################################
 # two-sided test: alternative = c("two.sided")  #
 # right-sided test: alternative = c("greater")  #
 # left-sided test: alternative = c("less")      #
 #################################################
 
-ost_tb %>% 
-  t_test(formula = weight ~ 1,
-         alternative = "two.sided",
-         mu = 320.0, 
-         conf.level = 0.95,
+# paired = TRUE
+pst_tb_long %>% 
+  t_test(formula = 몸무게 ~ 시간,
+         ref.group = "섭취후",
+         paired = TRUE,
+         alternative = "less",
          detailed = TRUE)
 
 # Cohen’s d(effect size)
 # 0.2 (small effect), 0.5 (moderate effect) and 0.8 (large effect)
-ost_tb %>% 
-  cohens_d(formula = weight ~ 1, 
-           mu = 320.0)
-           
+pst_tb_long %>% 
+  cohens_d(formula = 몸무게 ~ 시간, 
+           paired = TRUE)
+
 # 8.추론(infer)을 이용한 가설검정 및 그래프
-# p.21 설명
 
 # 8.1 표본평균(x)을 이용한 검정그래프 
 # 표본평균(x) 계산 
-x_bar <- ost_tb %>%
-  specify(response = weight) %>%    # hypothesize 없음
+x_bar <- pst_tb %>%
+  specify(response = 차이) %>%    # hypothesize 없음
   calculate(stat = "mean") %>%      # stat = "mean"
   print()
 
 # Bootstrapping을 이용한 귀무가설 분포 생성 
 set.seed(123) 
-null_dist_x <- ost_tb %>%
-  specify(response = weight) %>%
+null_dist_x <- pst_tb %>%
+  specify(response = 차이) %>%
   hypothesize(null = "point", 
-              mu = 320) %>%
+              mu = 0) %>%
   generate(reps = 1000, 
            type = "bootstrap") %>%
   calculate(stat = "mean") %>%
@@ -110,7 +112,7 @@ null_dist_x <- ost_tb %>%
 # 신뢰구간 생성 
 null_dist_ci <- null_dist_x %>%
   get_ci(level = 0.95, 
-          type = "percentile") %>%
+         type = "percentile") %>%
   print()
 
 # 그래프 그리기 
@@ -128,17 +130,17 @@ null_dist_x %>%
 
 # 8.2 t값을 이용한 검정그래프 
 # t_cal 계산 
-t_cal <- ost_tb %>%
-  specify(response = weight) %>%
+t_cal <- pst_tb %>%
+  specify(response = 차이) %>%
   hypothesize(null = "point",         # hypothesize 필요
-              mu = 320) %>%  
+              mu = 0) %>%  
   calculate(stat = "t") %>%           # stat = "t"              
   print()
 
 # Bootstrapping을 이용한 귀무가설 분포 생성 
 set.seed(123) 
-null_dist_t <- ost_tb %>%
-  specify(response = weight) %>%
+null_dist_t <- pst_tb %>%
+  specify(response = 차이) %>%
   hypothesize(null = "point", 
               mu = 320) %>%
   generate(reps = 1000, 
@@ -157,4 +159,7 @@ null_dist_t %>%
   shade_p_value(obs_stat = t_cal,
                 direction = "two-sided") +
   shade_confidence_interval(endpoints = null_dist_ci)
+
+
+
 

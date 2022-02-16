@@ -1,0 +1,134 @@
+---
+title: "Repeated Measures ANOVA-test"
+author: "Youngjin_Lee"
+date: '2022 2 13 '
+output:
+  word_document:
+    toc: yes
+  html_document:
+    toc: yes
+    number_sections: yes
+---
+# 반복측정 분산분석(Repeated Measures ANOVA)
+
+통계분석
+차이검정 : 반복측정 분산분석(Repeated Measures ANOVA) test
+문제
+K대학에서 운영하는 6개월 어학 프로그램이 있다. 
+어학 프로그램의 효과를 측정하기 위해 학습 프로그램에 참여한 학생을 대상으로 프로그램 참여전, 3개월 후, 6개월 후에 영어실력을 테스트하였다. 
+과련 어학프로그램은 효과가 있는지? 있다면 언제부터 효과가 나타났을지를 검증해 보자
+
+# 1.기본 package 설정, library 로드
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r package, include=FALSE}
+install.packages("tidyverse", repos="http://cran.us.r-project.org")
+install.packages("tidymodels", repos="http://cran.us.r-project.org")
+install.packages("rstatix", repos="http://cran.us.r-project.org")
+install.packages("skimr", repos="http://cran.us.r-project.org")
+```
+
+```{r library, include=FALSE}
+library(tidyverse)
+library(tidymodels)
+library(rstatix)
+library(skimr)
+```
+
+# 2.데이터 불러오기 
+```{r}
+rma_tb <- read_csv('data\\RMA.csv', 
+                   col_names = TRUE,
+                   locale=locale('ko', encoding='euc-kr'), # 한글
+                   na=".") %>%
+  mutate_if(is.character, as.factor) %>%
+  mutate(시점 = factor(시점,
+                        levels=c(1:3),
+                        labels=c("사전","3개월","6개월")))
+
+str(rma_tb)
+rma_tb
+```
+
+# 3.기술통계분석
+```{r}
+skim(rma_tb)
+
+rma_tb %>% 
+  group_by(시점) %>%
+  get_summary_stats(점수)
+```
+
+# 4.그래프 그리기(박스그래프,히스토그램)
+```{r}
+rma_tb %>% 
+  ggplot(mapping = aes(x = 시점,
+                       y = 점수)) +
+  geom_boxplot() +
+  labs(y = "시점별 성적점수 변화")
+
+rma_tb %>% 
+  ggplot(mapping = aes(x = 점수)) +
+  geom_histogram(bins = 10,               # binwidth=1,000: 값차이
+                 color = "white", 
+                 fill = "steelblue") +
+  facet_wrap(~ 시점)                   # 그룹별 분리
+```
+
+# 5.이상치 제거, 이상치 확인
+```{r}
+rma_tb %>%
+  group_by(시점) %>%
+  identify_outliers(점수)
+```
+
+# 6.정규분포 검정
+```{r}
+rma_tb %>%
+  group_by(시점) %>%
+  shapiro_test(점수)
+```
+
+# 7.구형성(sphericity)검정: Mauchly’s test. 
+```{r}
+rma_result <- rma_tb %>%
+  rstatix::anova_test(dv = 점수, 
+             wid = id, 
+             within = 시점)
+rma_result
+```
+# 8.사후검정(Multicamparison test )
+## Fisher LSD
+```{r}
+rma_tb %>% 
+  pairwise_t_test(점수 ~ 시점,
+                  paired=TRUE,
+                  p.adj="bonferroni")
+```
+# 부록: 일변량 ANOVA 검정
+```{r}
+rma_result_ow <- aov(점수 ~ 시점+Error(id/시점), 
+                  data=rma_tb)
+summary(rma_result_ow)
+```
+
+# 부록: car 이용 구형성(sphericity)검정: Mauchly’s test. 
+```{r}
+library(car)
+rma.matrix <- cbind(rma_tb$점수[rma_tb$시점=="사전"], 
+                    rma_tb$점수[rma_tb$시점=="3개월"], 
+                    rma_tb$점수[rma_tb$시점=="6개월"])
+head(rma.matrix)
+
+rma.model.lm <- lm(rma.matrix ~ 1) # ~1 : 데이터를 하나로 묶기
+time.f <- factor(c("사전","3개월","6개월")) 
+options(contrasts=c("contr.sum", "contr.poly"))
+rma.result.mt <- Anova(rma.model.lm, #Anova 대문자
+                       idata=data.frame(time.f),
+                       idesign=~time.f, 
+                       type="III")
+
+summary(rma.result.mt, multivariate=F)
+```
