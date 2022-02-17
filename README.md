@@ -6,4 +6,4 @@
   ## 통계분석방법
 
 
-![Statistical analysis method](\Image\Statistical analysis method.png)
+![Statistical analysis method](/Image/Statistical analysis method.png)
