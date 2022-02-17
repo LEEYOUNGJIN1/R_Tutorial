@@ -6,6 +6,6 @@
   ## 통계분석방법
 
 
-![Statistical_analysis_method](./Image/Statistical analysis method.png)
+![Statistical_analysis_method](https://github.com/LEEYOUNGJIN1/R_Tutorial/tree/main/Image/Statistical analysis method.png)
 
-<a href="*"><img src="https://github.com/LEEYOUNGJIN1/R_Tutorial/Image/Statistical analysis method.png></a>
+<a href="*"><img src="https://github.com/LEEYOUNGJIN1/R_Tutorial/tree/main/Image/Statistical analysis method.png></a>
