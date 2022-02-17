@@ -8,4 +8,4 @@
 
 ![Statistical_analysis_method](./Image/Statistical_analysis_method.png)
 
-<a href="*"><img src="https://github.com/LEEYOUNGJIN1/R_Tutorial/Image/Statistical_analysis_method.png></a>
+<a href="*"><img src="https://github.com/LEEYOUNGJIN1/R_Tutorial/tree/main/Image/Statistical_analysis_method.png></a>
