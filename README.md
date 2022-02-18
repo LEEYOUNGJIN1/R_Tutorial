@@ -55,15 +55,15 @@ $$
 t_{cal} = \frac {\bar x - μ_0} {\frac{s}{\sqrt 𝑛}} = \frac { 295.4 - 320} {\frac{20.04}{\sqrt 100}} = \frac {-24.6}{2.004} = -12.25
 $$
 
-$$
-
-$$
-
 #### 유의확률(***p-value***) 계산
 
 $$
 \pmb p-\pmb value = 0.000
 $$
+
+![통계치](./Image/One_Sample_t-test_data.png)
+
+
 
 ------
 
