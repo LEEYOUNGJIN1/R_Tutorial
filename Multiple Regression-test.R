@@ -1,0 +1,115 @@
+# 다중 회귀분석(Multiple Regression)
+
+# 문제의 정의
+# K대학의 이교수는 온라인게임의 몰입(즐거움)에 영향을 주는 요인이 무엇인지를 연구하고자 한다. 
+# 문헌연구를 통해 도구(2문항), 보상(3문항), 정보(3문항), 디자인(4문항), 공동체(3문항), 몰입(4문항)을 요인으로 추출하고 설문지를 만들었다. 
+# 그렇다면 온라인게임 몰입에 영향을 주는 변수는 무엇이고, 어떤 변수가 온라인게임 몰입에 가장 큰 영향을 주는 변수인지 분석해 보자
+
+# 1.기본 package 설정, library 로드
+library(tidyverse)
+library(tidymodels)
+library(rstatix)
+library(skimr)
+library(lm.beta)
+
+# 2.데이터 불러오기 
+mr_tb <- read_csv('data/MR.csv', 
+                   col_names = TRUE,
+                   locale=locale('ko', encoding='euc-kr'), # 한글
+                   na=".")
+
+str(mr_tb)
+mr_tb
+
+
+
+# 3.기본통계치 확인
+skim(mr_tb)
+
+mr_tb %>%
+  get_summary_stats()
+
+mr_tb <- mr_tb %>%
+  select(-(id))
+
+# 4.그래프 그리기(산점도)
+pairs( ~ ., data=mr_tb)
+
+# 5.다중 회귀분석
+# 전체변수 일괄입력
+# backward: 변수제거
+# forward: 변수추가
+# stepwise: backward와 forward 동시
+# AIC (Akaike information criterion), BIC (Bayesian ...)
+
+# 모델 생성
+mr_fit <- lm(flow ~ design+info+comm+op+fb, 
+             data=mr_tb) %>%
+  lm.beta()      # 표준화 회귀계수
+
+# ANOVA 분석
+summary(mr_fit)
+
+# 회귀계수
+tidy(mr_fit, conf.int = TRUE) %>%
+  mutate_if(is.numeric, round, 5)
+
+# 설명력R2
+glance(mr_fit)
+
+# 6.회귀분석 가정 검정
+# 등분산성: Scale-Location, ncvTest
+# 정규성: Nomal Q-Q, shapiro.test
+# 선형성: Residuals vs Fitted, 
+# 독립성: durbinWatsonTest
+# 이상치검정 : Residuals vs Leverage(cook's distance) 4/n-k-1
+
+# 그림으로 가정 검정
+opar <- par(no.readonly = TRUE)
+  par(mfrow=c(2,2))
+  plot(mr_fit)
+par(opar)
+
+
+
+
+# 수치로 가정 검정
+
+# 정규성 검정 
+shapiro_test(mr_fit$residuals)
+
+library(car)
+# 등분산성 검정 
+car::ncvTest(mr_fit)
+
+# 독립성 
+car::durbinWatsonTest(mr_fit)
+
+#이상치 검정, sd, hat, d 통합검정
+car::influencePlot(mr_fit, id.method="identify")
+
+# 부록: 변수 제거 방법
+
+# backward: 변수제거
+# 모든 변수 투입확인
+# 제거된 변수있는지 확인
+# AIC값이 줄어들어야 의미가 있음
+mr_fit_bk <- lm(flow ~ ., mr_tb) %>%
+  lm.beta()      # 표준화 회귀계수
+
+mr_fit_bk <- stats::step(mr_fit_bk, # stats:: 필수, 삭제시 에러발생
+                         direction = "backward", 
+                         trace = T) # trace step별로 모두 보여주기 
+
+# forward: 변수제거
+mr_fit_fw <- lm(flow ~ 1, mr_tb) %>%
+  lm.beta()      # 표준화 회귀계수
+summary(mr_fit_fw) 
+
+mr_fit_fw <- stats::step(mr_fit_fw,  # stats:: 필수, 삭제시 에러발생
+                         direction = "forward", 
+                         scope =(flow ~ design+info+comm+op+fb), # "."대체시 에러
+                         trace = T)
+
+
+

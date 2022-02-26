@@ -1,0 +1,95 @@
+---
+title: "Chi Square(before)-test"
+author: "Youngjin_Lee"
+date: '2022 2 25 '
+output:
+  word_document:
+    toc: yes
+  html_document:
+    toc: yes
+    number_sections: yes
+---
+
+교차검증(Chi Square(before)-test 동질성 검정:사전실험설계)
+동질성 검정
+사전(실험)설계일 때: 사전에 그룹의 수를 결정
+그룹에 따른 차이를 연구할 때
+문제
+K 병원에서는 비타민과 감기와의 관계를 연구하고자 한다. 
+감기가 걸리지 않은 사람을 대상으로 비타민을 투여할 실험군과 가짜약을
+투여할 대조군으로 구분하고 겨울동안 감기가 걸렸는지를 확인하였다. 
+과연 비타민이 감기에 효과가 있었는지 검증해 보라
+
+# 1.기본 package 설정, library 로드
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r package, include=FALSE}
+install.packages("tidyverse", repos="http://cran.us.r-project.org")
+install.packages("tidymodels", repos="http://cran.us.r-project.org")
+install.packages("rstatix", repos="http://cran.us.r-project.org")
+install.packages("skimr", repos="http://cran.us.r-project.org")
+install.packages("lm.beta", repos="http://cran.us.r-project.org")
+```
+
+```{r library, include=FALSE}
+library(tidyverse)
+library(tidymodels)
+library(rstatix)
+library(skimr)
+library(lm.beta)
+```
+
+# 2.데이터 불러오기 
+```{r}
+prech_tb <- read_csv('data/PreCH.csv', 
+                     col_names = TRUE,
+                     locale=locale('ko', encoding='euc-kr'), # 한글
+                     na=".") %>%
+  round(2) %>%                 # 소수점 2자리로 반올림
+  mutate_if(is.character, as.factor) %>%
+  mutate(group = factor(group,
+                        levels=c(1,2),
+                        labels=c("비타민","Placebo"))) %>%
+  mutate(cold = factor(cold,
+                       levels=c(1,2),
+                       labels=c("noCold","Cold")))
+
+str(prech_tb)
+prech_tb
+
+skim(prech_tb)
+```
+
+# 3.그래프 그리기(모자이크) 
+```{r}
+mosaicplot(~ group + cold, 
+           data = prech_tb, 
+           color = TRUE, 
+           cex = 1,.2)
+```
+
+# 4.카이스케어 분석
+```{r}
+install.packages("gmodels", repos="http://cran.us.r-project.org")
+library(gmodels)
+
+prech_fit <- CrossTable(prech_tb$group,
+                        prech_tb$cold,
+                        expected=TRUE,
+                        chisq=TRUE,
+                        asresid=F)
+```
+
+# 5.수정된 표준잔차
+```{r}
+prech_fit$chisq$stdres
+```
+
+# 6.상대위험율 계산
+비타민은 복용하면 감기에 안걸릴 확률이 
+그렇지 않은 사람에 비해 2.75배 높게 나타남(0.660/0.240)
+```{r}
+prech_fit$prop.row[1,1]/prech_fit$prop.row[2,1]
+```
